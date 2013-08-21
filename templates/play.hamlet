@@ -1,0 +1,21 @@
+<h1>ICFP 2013 Contest
+
+<form action="@{PlayR}?auth=#{userAuthId user}" method="post" role="form">
+  <div.form-group.row>
+    <label.col-lg-2.control-label for="json">JSON
+    <div.col-lg-10>
+      <textarea#json.form-control name="json" rows="5">
+
+  <div.form-group.row>
+    <label.col-lg-2.control-label for="url">URL
+    <div.col-lg-3>
+      <select#url.form-control name="url">
+        <option>status
+        <option>myproblems
+        <option>eval
+        <option>guess
+        <option>train
+
+  <div.form-group.row>
+    <div.col-lg-offset-2.col-lg-10>
+      <button type="submit" class="btn btn-default">POST

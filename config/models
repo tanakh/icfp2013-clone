@@ -1,0 +1,28 @@
+User
+    ident Text
+    name Text
+    authId Text
+    requestWindow UTCTime
+    requestAmount Int
+    score Int
+    trainScore Int
+    mismatches Int
+    numRequests Int
+
+    UniqueUser ident
+    UniqueAuthId authId
+    deriving Typeable Show
+
+Problem
+    ident Text
+    size Int
+    operators [Text]
+    challenge Text
+    UniqueProblem ident
+
+Status
+    user UserId
+    problem ProblemId
+    solved Bool
+    firstTry UTCTime Maybe
+    UniqueStatus user problem

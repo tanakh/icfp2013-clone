@@ -1,0 +1,16 @@
+<h1>User Settings
+
+<form action=@{UserR} method="post" role="form">
+  <div.form-group.row>
+    <label.col-lg-2.control-label for="input-name">Name
+    <div.col-lg-3>
+      <input#input-name.form-control type="text" name="input-name" placeholder="Name" value="#{userName user}">
+
+  <div.form-group.row>
+    <label.col-lg-2.control-label>Auth ID
+    <div.col-lg-10>
+      <p.form-control-static>#{userAuthId user}
+
+  <div.form-group.row>
+    <div.col-lg-offset-2.col-lg-10>
+      <button type="submit" class="btn btn-default">Update

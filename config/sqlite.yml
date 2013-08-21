@@ -1,0 +1,20 @@
+Default: &defaults
+  database: icfp2013-server-clone.sqlite3
+  poolsize: 10
+
+Development:
+  <<: *defaults
+
+Testing:
+  database: icfp2013-server-clone_test.sqlite3
+  <<: *defaults
+
+Staging:
+  database: icfp2013-server-clone_staging.sqlite3
+  poolsize: 100
+  <<: *defaults
+
+Production:
+  database: icfp2013-server-clone_production.sqlite3
+  poolsize: 100
+  <<: *defaults

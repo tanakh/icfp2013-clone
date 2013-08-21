@@ -1,0 +1,13 @@
+<h1>Ranking
+
+<table.table.table-hover>
+  <tr>
+    <th>##
+    <th>User name
+    <th>Score
+
+  $forall (i, Entity _ user) <- ranking
+    <tr>
+      <td>#{i}
+      <td>#{userName user}
+      <td>#{userScore user}
