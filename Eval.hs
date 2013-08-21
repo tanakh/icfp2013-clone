@@ -2,6 +2,9 @@ module Eval (
   evalString,
   equivString,
   EquivResponse(..),
+
+  -- parser
+  program,
   ) where
 
 import Data.Word
@@ -21,7 +24,7 @@ data EquivResponse =
   | Mismatch Word64 Word64 Word64
   | Undecidable String
 
-data Program = Program Expr
+data Program = Program Expr deriving (Show)
 
 data Expr =
     Const Word64
@@ -30,9 +33,10 @@ data Expr =
   | Fold Expr Expr Expr
   | Op1 Op1 Expr
   | Op2 Op2 Expr Expr
+  deriving (Show)
 
-data Op1 = Not | Shl Int | Shr Int
-data Op2 = And | Or | Xor | Plus
+data Op1 = Not | Shl Int | Shr Int deriving (Show)
+data Op2 = And | Or | Xor | Plus deriving (Show)
 
 showDoc :: Doc -> String
 showDoc d = displayS (renderCompact d) ""
@@ -98,51 +102,53 @@ equiv p1 p2 = do
 
 -- Parser
 
+rsv = reserve emptyIdents
+
 program :: Parser Program
 program = p <* spaces <* eof where
   p = parens $ do
-    _ <- symbol "lambda"
+    rsv "lambda"
     var <- parens $ ident emptyIdents
     Program <$> expr [var]
 
 expr :: [String] -> Parser Expr
-expr env = constant <|> var <|> if0 <|> fold <|> op1 <|> op2 where
+expr env = constant <|> var <|> parens (if0 <|> fold <|> op1 <|> op2) where
   constant =
-    Const 0 <$ symbol "0" <|>
-    Const 1 <$ symbol "1"
+    Const 0 <$ rsv "0" <|>
+    Const 1 <$ rsv "1"
 
   var = do
     name <- ident emptyIdents
     maybe (fail $ "variable not found: " ++ name) (return . Var)
       $ elemIndex name env
 
-  if0 = try $ parens $ do
-    _ <- symbol "if0"
+  if0 = do
+    _ <- rsv "if0"
     If0 <$> expr env <*> expr env <*> expr env
 
-  fold = try $ parens $ do
-    _ <- symbol "fold"
+  fold = do
+    _ <- rsv "fold"
     v <- expr env
     a <- expr env
     e <- parens $ do
-      _ <- symbol "lambda"
+      _ <- rsv "lambda"
       (x, y) <- parens $ (,) <$> ident emptyIdents <*> ident emptyIdents
       expr $ x : y : env
     return $ Fold v a e
 
-  op1 = try $ parens $ do
-    opr <- choice [ Not    <$ symbol "not"
-                  , Shl 1  <$ symbol "shl1"
-                  , Shr 1  <$ symbol "shr1"
-                  , Shr 4  <$ symbol "shr4"
-                  , Shr 16 <$ symbol "shr16"
+  op1 = do
+    opr <- choice [ Not    <$ rsv "not"
+                  , Shl 1  <$ rsv "shl1"
+                  , Shr 1  <$ rsv "shr1"
+                  , Shr 4  <$ rsv "shr4"
+                  , Shr 16 <$ rsv "shr16"
                   ]
     Op1 opr <$> expr env
 
-  op2 = try $ parens $ do
-    opr <- choice [ And  <$ symbol "and"
-                  , Or   <$ symbol "or"
-                  , Xor  <$ symbol "xor"
-                  , Plus <$ symbol "plus"
+  op2 = do
+    opr <- choice [ And  <$ rsv "and"
+                  , Or   <$ rsv "or"
+                  , Xor  <$ rsv "xor"
+                  , Plus <$ rsv "plus"
                   ]
     Op2 opr <$> expr env <*> expr env
