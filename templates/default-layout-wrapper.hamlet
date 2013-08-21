@@ -48,7 +48,8 @@ $newline never
 
         <div.container>
             <footer>
-                #{extraCopyright $ appExtra $ settings master}
+                #{extraCopyright $ appExtra $ settings master},
+                @<a href="https://twitter.com/tanakh">tanakh</a>
 
         $maybe analytics <- extraAnalytics $ appExtra $ settings master
             <script>

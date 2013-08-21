@@ -15,5 +15,5 @@ Staging:
   <<: *defaults
 
 Production:
-  #approot: "http://www.example.com"
+  approot: "http://icfp2013-clone.cloudapp.net"
   <<: *defaults
