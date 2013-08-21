@@ -1,7 +1,8 @@
 exec: ../dist/build/icfp2013-server-clone/icfp2013-server-clone
 args:
     - production
-host: <<HOST-NOT-SET>>
+host: icfp2013-clone.cloudapp.net
+ssl: false
 
 # Use the following to automatically copy your bundle upon creation via `yesod
 # keter`. Uses `scp` internally, so you can set it to a remote destination
