@@ -28,6 +28,7 @@ import Data.Vector.Lens
 import System.FilePath
 import System.Random
 import Data.Maybe
+import Data.Either
 
 problemsPerUser :: Int
 problemsPerUser = 2000
@@ -46,11 +47,6 @@ authenticate = do
         Just euser -> do
           touchUser euser
 
-getPostJson :: Handler (Maybe Value)
-getPostJson = do
-  t <- lookupPostParam "json"
-  return (join $ fmap (decode' . encodeUtf8 . fromStrict) t :: Maybe Value)
-
 window :: UTCTime -> Integer
 window t = floor (utctDayTime t) `div` 20 * 20
 
@@ -66,10 +62,6 @@ touchUser (Entity userkey User {..}) = do
                                    , UserNumRequests +=. 1
                                    ])
     _ | userRequestAmount >= 5 -> do
-      runDB $ update userkey [ UserRequestWindow =. cur
-                             , UserRequestAmount =. 1
-                             , UserNumRequests +=. 1
-                             ]
       sendResponseStatus (mkStatus 429 "too many requests") ("" :: Text)
     _ -> do
       Entity userkey <$> (runDB $ updateGet userkey [ UserRequestAmount +=. 1
@@ -108,6 +100,12 @@ timeLeft :: UTCTime -> Status -> Double
 timeLeft cur s =
   realToFrac (fromMaybe cur (statusFirstTry s) `diffUTCTime` cur) + 300
 
+lookupJson :: Handler Value
+lookupJson = do
+  mtxt <- lookupPostParam "json"
+  maybe (invalidArgs []) return $
+    join $ fmap (decode'. encodeUtf8 . fromStrict) mtxt
+
 -- Equivalence Checker
 
 -- Handlers
@@ -132,10 +130,10 @@ postMyProblemsR = do
     f cur (Entity _ s@Status{..}, Entity _ Problem {..})
       | isNothing statusFirstTry = v
       | tl <= 0 || statusSolved =
-        v & key "timeLeft"._Double.~ (max 0 tl)
-          & key "solved"._Bool.~ statusSolved
+        v & _Object . at "timeLeft" ?~ _Double # (max 0 tl)
+          & _Object . at "solved"   ?~ _Bool   #  statusSolved
       | otherwise =
-        v & key "timeLeft"._Double.~ (max 0 tl)
+        v & _Object . at "timeLeft" ?~ _Double # (max 0 tl)
      where
       tl = timeLeft cur s
       v = [aesonQQ|
@@ -146,15 +144,17 @@ postMyProblemsR = do
            } |]
 
 postEvalR :: Handler Value
-postEvalR = do
+postEvalR = postEvalR' =<< parseJsonBody_
+
+postEvalR' :: Value -> Handler Value
+postEvalR' js = do
   Entity userkey User {..} <- authenticate
-  mjs <- getPostJson
 
   (program, args, mstat) <-
-    case ( mjs ^?  _Just.key "id"._String
-         , mjs ^?  _Just.key "program"._String
-         , mjs ^.. _Just.key "arguments"._Array.traversed._String.unpacked.to read) of
-      (Just pid, Nothing, args) -> runDB $ do
+    case ( js ^?  key "id"._String
+         , js ^?  key "program"._String
+         , js ^.. key "arguments"._Array.traversed._String.unpacked.to read) of
+      (Just pid, _, args) -> runDB $ do
           Entity pkey prob <- getBy404 $ UniqueProblem pid
           mstat            <- getBy    $ UniqueStatus userkey pkey
           return (problemChallenge prob, args, mstat)
@@ -167,19 +167,32 @@ postEvalR = do
   when (T.length program > 1024 || length args > 256) $
     sendResponseStatus (mkStatus 413 "request too big") ("" :: Text)
 
-  results <- mapM (either (\e -> invalidArgs [T.pack e]) return) $
-             map (evalString $ T.unpack program) args
-
-  returnJson (map (printf "%016X") results :: [String])
+  let results = map (evalString $ T.unpack program) args
+  
+  case (lefts results, rights results) of
+    ((e:_), _) -> returnJson [aesonQQ|
+      {
+        "status": "error",
+        "message": <|e|>
+      }
+      |]
+    (_, vals) -> returnJson [aesonQQ|
+      {
+        "status": "ok",
+        "outputs": <|map (printf "0x%016X") vals :: [String]|>
+      }
+      |]
 
 postGuessR :: Handler Value
-postGuessR = do
+postGuessR = postGuessR' =<< parseJsonBody_
+
+postGuessR' :: Value -> Handler Value
+postGuessR' js = do
   Entity userkey User {..} <- authenticate
-  mjs <- getPostJson
 
   (ans, guess, mstat) <-
-    case ( mjs ^?  _Just.key "id"._String
-         , mjs ^?  _Just.key "program"._String) of
+    case ( js ^?  key "id"._String
+         , js ^?  key "program"._String) of
       (Just pid, Just p) -> runDB $ do
         Entity pkey prob <- getBy404 $ UniqueProblem pid
         mstat            <- getBy    $ UniqueStatus userkey pkey
@@ -194,7 +207,12 @@ postGuessR = do
   res <- liftIO $ equivString (T.unpack ans) (T.unpack guess)
   case res of
     Left e ->
-      invalidArgs [T.pack e]
+      returnJson [aesonQQ|
+        {
+          "status": "error",
+          "message": <|e|>
+        }
+      |]
 
     Right Equivalent -> do
       runDB $ do
@@ -222,11 +240,13 @@ postGuessR = do
       |]
 
 postTrainR :: Handler Value
-postTrainR = do
+postTrainR = postTrainR' =<< parseJsonBody_
+
+postTrainR' :: Value -> Handler Value
+postTrainR' js = do
   Entity userkey User {..} <- authenticate
-  mjs <- getPostJson
-  let spec = ( mjs ^?  _Just.key "size"._Integer.integral
-             , mjs ^.. _Just.key "operators"._Array.traversed._String)
+  let spec = ( js ^?  key "size"._Integer.integral
+             , js ^.. key "operators"._Array.traversed._String)
 
   let specOk = case spec of
         (Just 42,  []) -> True
@@ -315,12 +335,14 @@ postStatusR = do
 -- for deploy
 
 postRegisterR :: Handler Value
-postRegisterR = do
+postRegisterR = postRegisterR' =<< parseJsonBody_
+
+postRegisterR' :: Value -> Handler Value
+postRegisterR' js = do
   problemNum <- runDB $ count ([] :: [Filter Problem])
   when (problemNum > 0) $ invalidArgs ["already registered"]
 
-  mjs <- getPostJson
-  case mjs ^? _Just.key "dir"._String.unpacked of
+  case (js :: Value) ^? key "dir"._String.unpacked of
     Nothing -> invalidArgs ["dir is not specified"]
     Just dir -> do
       registerProblems dir
@@ -357,9 +379,9 @@ postPlayR = do
   murl <- lookupPostParam "url"
   case murl of
     Just "myproblems" -> postMyProblemsR
-    Just "eval"       -> postEvalR
-    Just "guess"      -> postGuessR
-    Just "train"      -> postTrainR
+    Just "eval"       -> postEvalR' =<< lookupJson
+    Just "guess"      -> postGuessR' =<< lookupJson
+    Just "train"      -> postTrainR' =<< lookupJson
     Just "status"     -> postStatusR
-    Just "register"   -> postRegisterR
+    Just "register"   -> postRegisterR' =<< lookupJson
     _ -> notFound
