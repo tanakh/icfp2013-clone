@@ -1,0 +1,24 @@
+Default: &defaults
+  user: hoge
+  password: hoge
+  host: localhost
+  port: 5432
+  database: hoge
+  poolsize: 10
+
+Development:
+  <<: *defaults
+
+Testing:
+  database: hoge_test
+  <<: *defaults
+
+Staging:
+  database: hoge_staging
+  poolsize: 100
+  <<: *defaults
+
+Production:
+  database: hoge_production
+  poolsize: 100
+  <<: *defaults
