@@ -1,4 +1,4 @@
-User
+UserInfo
     ident Text
     name Text
     authId Text
@@ -21,7 +21,7 @@ Problem
     UniqueProblem ident
 
 Status
-    user UserId
+    user UserInfoId
     problem ProblemId
     solved Bool
     firstTry UTCTime Maybe

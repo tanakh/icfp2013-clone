@@ -33,7 +33,7 @@ import Data.Either
 problemsPerUser :: Int
 problemsPerUser = 2000
 
-authenticate :: Handler (Entity User)
+authenticate :: Handler (Entity UserInfo)
 authenticate = do
   mauth <- lookupGetParam "auth"
   case mauth of
@@ -50,22 +50,22 @@ authenticate = do
 window :: UTCTime -> Integer
 window t = floor (utctDayTime t) `div` 20 * 20
 
-touchUser :: Entity User -> Handler (Entity User)
-touchUser (Entity userkey User {..}) = do
-  when (userName == "") $ redirect UserR
+touchUser :: Entity UserInfo -> Handler (Entity UserInfo)
+touchUser (Entity userkey UserInfo {..}) = do
+  when (userInfoName == "") $ redirect UserR
   cur <- liftIO getCurrentTime
   case () of
-    _ | window cur /= window userRequestWindow -> do
+    _ | window cur /= window userInfoRequestWindow -> do
       Entity userkey <$>
-        (runDB $ updateGet userkey [ UserRequestWindow =. cur
-                                   , UserRequestAmount =. 1
-                                   , UserNumRequests +=. 1
+        (runDB $ updateGet userkey [ UserInfoRequestWindow =. cur
+                                   , UserInfoRequestAmount =. 1
+                                   , UserInfoNumRequests +=. 1
                                    ])
-    _ | userRequestAmount >= 5 -> do
+    _ | userInfoRequestAmount >= 5 -> do
       sendResponseStatus (mkStatus 429 "too many requests") ("" :: Text)
     _ -> do
-      Entity userkey <$> (runDB $ updateGet userkey [ UserRequestAmount +=. 1
-                                                    , UserNumRequests +=. 1
+      Entity userkey <$> (runDB $ updateGet userkey [ UserInfoRequestAmount +=. 1
+                                                    , UserInfoNumRequests +=. 1
                                                     ])
 
 touchStatus :: Entity Status -> Handler ()
@@ -78,7 +78,7 @@ touchStatus (Entity skey stat) = do
   when (statusSolved stat) $
     sendResponseStatus (mkStatus 412 "Already Solved") ("" :: Text)
 
-assignProblems :: Key User -> Handler ()
+assignProblems :: Key UserInfo -> Handler ()
 assignProblems userkey = do
   problems <- runDB $ selectList [] []
   selected <- liftIO $ randomSelect problemsPerUser (length problems) problems
@@ -93,8 +93,8 @@ assignProblems userkey = do
     randomSelect rest total (x:xs) = do
       p <- randomRIO (0, 1)
       if p < (fromIntegral rest / fromIntegral total :: Double)
-        then (x:) <$> randomSelect (rest - 1) total xs
-        else randomSelect rest total xs
+        then (x:) <$> randomSelect (rest - 1) (total - 1) xs
+        else randomSelect rest (total - 1) xs
 
 timeLeft :: UTCTime -> Status -> Double
 timeLeft cur s =
@@ -148,7 +148,7 @@ postEvalR = postEvalR' =<< parseJsonBody_
 
 postEvalR' :: Value -> Handler Value
 postEvalR' js = do
-  Entity userkey User {..} <- authenticate
+  Entity userkey UserInfo {..} <- authenticate
 
   (program, args, mstat) <-
     case ( js ^?  key "id"._String
@@ -188,7 +188,7 @@ postGuessR = postGuessR' =<< parseJsonBody_
 
 postGuessR' :: Value -> Handler Value
 postGuessR' js = do
-  Entity userkey User {..} <- authenticate
+  Entity userkey UserInfo {..} <- authenticate
 
   (ans, guess, mstat) <-
     case ( js ^?  key "id"._String
@@ -219,12 +219,12 @@ postGuessR' js = do
         case mstat of
           Nothing -> return ()
           Just (Entity skey _) -> do
-            update userkey [ UserScore +=. 1 ]
+            update userkey [ UserInfoScore +=. 1 ]
             update skey    [ StatusSolved =. True ]
       returnJson [aesonQQ| { "status": "win" } |]
 
     Right (Mismatch x y z) -> do
-      runDB $ update userkey [ UserMismatches +=. 1 ]
+      runDB $ update userkey [ UserInfoMismatches +=. 1 ]
       returnJson [aesonQQ|
         {
           "status": "mismatch",
@@ -234,8 +234,8 @@ postGuessR' js = do
 
     Right (Undecidable msg) -> returnJson [aesonQQ|
         {
-          "status": "mismatch",
-          "values": <|msg|>
+          "status": "error",
+          "message": <|msg|>
         }
       |]
 
@@ -244,7 +244,7 @@ postTrainR = postTrainR' =<< parseJsonBody_
 
 postTrainR' :: Value -> Handler Value
 postTrainR' js = do
-  Entity userkey User {..} <- authenticate
+  Entity userkey UserInfo {..} <- authenticate
   let spec = ( js ^?  key "size"._Integer.integral
              , js ^.. key "operators"._Array.traversed._String)
 
@@ -302,25 +302,25 @@ postTrainR' js = do
 
 postStatusR :: Handler Value
 postStatusR = do
-  Entity _ User {..} <- authenticate
+  Entity _ UserInfo {..} <- authenticate
   cur <- liftIO $ getCurrentTime
   let resetIn = max 0
-                $ fromIntegral (window userRequestWindow + 20)
+                $ fromIntegral (window userInfoRequestWindow + 20)
                 - realToFrac (utctDayTime cur) :: Double
       score = 0 :: Int
       trainScore = 0 :: Int
 
   returnJson [aesonQQ|
   {
-    "easyChairId": <|T.take 4 userAuthId|>,
-    "auth": <|userAuthId|>,
+    "easyChairId": <|T.take 4 userInfoAuthId|>,
+    "auth": <|userInfoAuthId|>,
     "contestScore": <|score|>,
     "trainingScore": <|trainScore|>,
-    "mismatches": <|userMismatches|>,
-    "numRequests": <|userNumRequests|>,
+    "mismatches": <|userInfoMismatches|>,
+    "numRequests": <|userInfoNumRequests|>,
     "requestWindow": {
       "resetsIn": <|resetIn|>,
-      "amount": <|userRequestAmount|>,
+      "amount": <|userInfoRequestAmount|>,
       "limit": 5
     },
     "cpuWindow": {

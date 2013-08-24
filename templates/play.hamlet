@@ -1,6 +1,6 @@
 <h1>ICFP 2013 Contest
 
-<form action="@{PlayR}?auth=#{userAuthId user}" method="post" role="form">
+<form action="@{PlayR}?auth=#{userInfoAuthId user}" method="post" role="form">
   <div.form-group.row>
     <label.col-lg-2.control-label for="json">JSON
     <div.col-lg-10>

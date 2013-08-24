@@ -9,5 +9,5 @@
   $forall (i, Entity _ user) <- ranking
     <tr>
       <td>#{i}
-      <td>#{userName user}
-      <td>#{userScore user}
+      <td>#{userInfoName user}
+      <td>#{userInfoScore user}

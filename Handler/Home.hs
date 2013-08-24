@@ -7,7 +7,7 @@ getHomeR = do
   muser <- maybeAuth
 
   case muser of
-    Just (Entity _ (User { userName = "" })) ->
+    Just (Entity _ (UserInfo { userInfoName = "" })) ->
       redirect UserR
     _ ->
       return ()

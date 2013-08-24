@@ -141,7 +141,7 @@ instance YesodPersistRunner App where
     getDBRunner = defaultGetDBRunner connPool
 
 instance YesodAuth App where
-    type AuthId App = UserId
+    type AuthId App = UserInfoId
 
     -- Where to send a user after successful login
     loginDest _ = HomeR
@@ -154,19 +154,19 @@ instance YesodAuth App where
             Just (Entity uid _) -> return $ Just uid
             Nothing -> do
               cur <- liftIO $ getCurrentTime
-              key <- insert $ User
-                  { userIdent = credsIdent creds
-                  , userName = ""
-                  , userAuthId = ""
-                  , userRequestWindow = cur
-                  , userRequestAmount = 0
-                  , userScore = 0
-                  , userTrainScore = 0
-                  , userMismatches = 0
-                  , userNumRequests = 0
+              key <- insert $ UserInfo
+                  { userInfoIdent = credsIdent creds
+                  , userInfoName = ""
+                  , userInfoAuthId = ""
+                  , userInfoRequestWindow = cur
+                  , userInfoRequestAmount = 0
+                  , userInfoScore = 0
+                  , userInfoTrainScore = 0
+                  , userInfoMismatches = 0
+                  , userInfoNumRequests = 0
                   }
               aid <- liftIO $ genAuthId key $ credsIdent creds
-              update key [ UserAuthId =. aid ]
+              update key [ UserInfoAuthId =. aid ]
               return $ Just key
 
     -- You can add other plugins like BrowserID, email or OAuth here
@@ -179,7 +179,7 @@ instance YesodAuth App where
         <div.alert.alert-success>You are now logged in
       |]
 
-genAuthId :: Key User -> Text -> IO Text
+genAuthId :: Key UserInfo -> Text -> IO Text
 genAuthId uid uident = do
   salt <- liftIO $ replicateM 32 randomIO
   let Right sid = fromPersistValue $ unKey uid

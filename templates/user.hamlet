@@ -4,12 +4,12 @@
   <div.form-group.row>
     <label.col-lg-2.control-label for="input-name">Name
     <div.col-lg-3>
-      <input#input-name.form-control type="text" name="input-name" placeholder="Name" value="#{userName user}">
+      <input#input-name.form-control type="text" name="input-name" placeholder="Name" value="#{userInfoName user}">
 
   <div.form-group.row>
     <label.col-lg-2.control-label>Auth ID
     <div.col-lg-10>
-      <p.form-control-static>#{userAuthId user}
+      <p.form-control-static>#{userInfoAuthId user}
 
   <div.form-group.row>
     <div.col-lg-offset-2.col-lg-10>
