@@ -1,7 +1,7 @@
 exec: ../dist/build/icfp2013-server-clone/icfp2013-server-clone
 args:
     - production
-host: icfp2013-clone.cloudapp.net
+host: icfpc2013-clone.cloudapp.net
 ssl: false
 
 # Use the following to automatically copy your bundle upon creation via `yesod
