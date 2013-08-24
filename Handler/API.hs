@@ -228,7 +228,7 @@ postGuessR' js = do
       returnJson [aesonQQ|
         {
           "status": "mismatch",
-          "values": <|[x, y, z]|>
+          "values": <|map (printf "0x%016d") [x, y, z] :: [String]|>
         }
       |]
 
