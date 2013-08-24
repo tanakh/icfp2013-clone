@@ -29,6 +29,7 @@ import System.FilePath
 import System.Random
 import Data.Maybe
 import Data.Either
+import Control.Concurrent
 
 problemsPerUser :: Int
 problemsPerUser = 2000
@@ -62,6 +63,9 @@ touchUser (Entity userkey UserInfo {..}) = do
                                    , UserInfoNumRequests +=. 1
                                    ])
     _ | userInfoRequestAmount >= 5 -> do
+      let wait = fromIntegral (window userInfoRequestWindow + 20)
+                - realToFrac (utctDayTime cur) :: Double
+      liftIO $ threadDelay $ floor $ (max 1 $ min 20 wait) * 1e6
       sendResponseStatus (mkStatus 429 "too many requests") ("" :: Text)
     _ -> do
       Entity userkey <$> (runDB $ updateGet userkey [ UserInfoRequestAmount +=. 1
